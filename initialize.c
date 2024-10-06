@@ -1,13 +1,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <SDL2/SDL.h>
+#include <time.h>
+#include <stdlib.h>
 #include "main.h"
+
+/** Start address for each of the 15 sprites, associared with the hexadecimal digits */
+const u_int16_t SPRITE_ADDRESS[16] = {0x50, 0x55, 0x5A, 0x5F, 0x64, 0x69, 0x6E, 0x73, 0x78, 0x7D, 0x82, 0x87, 0x8C, 0x91, 0x96, 0x9B};
+
+///Stores the last time when the delay timer was altered
+time_t current_time_delay;
+
+///Stores the last time when the sound timer was altered
+time_t current_time_sound;
+
+///Stores currently measured time
+time_t tmp_time;
+
 /** RAM Memory in bytes */
 const unsigned int TOTAL_RAM_MEMORY = 4096;
 
+/** Screen Parameters */
 const int SDL_SCREEN_WIDTH = 64;
 const int SDL_SCREEN_HEIGHT = 32;
-const int SDL_SCREEN_SCALE=15;
+const int SDL_SCREEN_SCALE=55;
 
 const unsigned int INSTRUCTIONS_PER_SECOND = 700;
 
@@ -58,9 +74,12 @@ void update_display(SDL_Renderer *renderer) {
     SDL_Delay(100);
 }
 
-int main(int argc, char *argv[])
-{
+int RND(u_int8_t *v, u_int8_t k, u_int8_t x) {
+    v[x] = (rand()%256) & k;
+}
 
+int main(int argc, char *argv[]) {
+    srand(time(NULL));
     FILE *bin;
 
     //Sequence for pushing the program into RAM Memory
@@ -147,9 +166,21 @@ int main(int argc, char *argv[])
     u_int8_t n;
     int flag;
     int breakflag = 0;
+
+
+
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     ///Main CPU Cycle
+
+
+
     while(1) {
+       /* tmp_time = time(NULL);
+        if(tmp_time - current_time >= 1) {
+            printf("TIME!\n");
+            current_time = tmp_time;
+        }
+*/
         if(breakflag==100) break;
         flag = 0;
         current_instruction = fetch(memory, &PC);
@@ -158,7 +189,6 @@ int main(int argc, char *argv[])
         switch(current_instruction) {
             case 0x00E0 : CLS(renderer); flag = 1; break;
             case 0x00EE : RET(&PC, stack, &SP); flag = 1; break;
-            default : breakflag++;
         }
 
         if(flag) continue;
@@ -170,50 +200,94 @@ int main(int argc, char *argv[])
         n = nnn & 0xF;
 
         switch(opcode){
-            case 1 : JUMP(nnn, &PC); break;
-            case 2 : if(CALL(nnn,&PC,&SP,stack)<0) { perror("Stack overflow!"); return 1;} break;
-            case 3 : SE(&PC, V[x], kk); break;
-            case 4 : SNE(&PC, V[x], kk); break;
-            case 5 : SEr(&PC, V[x], kk); break;
-            case 6 : LD(V,kk,x); break;
-            case 7 : ADD(V, kk, x); break;
-
+            case 1 : JUMP(nnn, &PC); break; // 1nnn
+            case 2 : if(CALL(nnn,&PC,&SP,stack)<0) { perror("Stack overflow!"); return 1;} break; //2nnn
+            case 3 : SE(&PC, V[x], kk); break; //3xkk
+            case 4 : SNE(&PC, V[x], kk); break; //4xkk
+            case 5 : if(n == 0) SEr(&PC, V[x], kk); break; //5xy0
+            case 6 : LD(V,kk,x); break; //6xkk
+            case 7 : ADD(V, kk, x); break; //7xkk
             case 8 :
-                if(n == 0) {
+                if(n == 0) {  //8xy0
                     V[x] = V[y];
                 }
-                else if(n == 1){
+
+                else if(n == 1){  //8xy1
                     V[x] = V[x] | V[y];
                 }
-                else if(n == 2){
+
+                else if(n == 2){  //8xy2
                     V[x] = V[x] & V[y];
                 }
-                else if(n == 3){
+
+                else if(n == 3){  //8xy3
                     V[x] = V[x] ^ V[y];
                 }
-                else if(n == 4){
+
+                else if(n == 4){  //8xy4
                     unsigned int tmp = V[x] + V[y];
                     if(tmp>255) V[15] = 1;
                     V[x] = tmp & 0xFF;
                 }
-                else if(n == 5){
-                    
+
+                else if(n == 5){  //8xy5
+                    int l = V[x] - V[y];
+                    if(l<0) {
+                        V[x] = V[y] - V[x];
+                        V[15] = 0;
+                    }
+                    else {
+                        V[x] = V[x] - V[y];
+                        V[15] = 1;
+                    }
                 }
-                else if(n == 6){
 
+                else if(n == 6){  // 8xy6
+                    V[15] = V[x] & 1;
+                    V[x] = V[x] >> 1;
                 }
-                else if(n == 7){
 
+                else if(n == 7){  //8xy7
+                    int l = V[y] - V[x];
+                    if(l<0) {
+                        V[15] = 0;
+                        V[x] = V[x] - V[y];
+                    }
+                    else {
+                        V[15] = 1;
+                        V[x] = V[y] - V[x];
+                    }
                 }
-                else if(n == 14){
 
-                }break;
+                else if(n == 14){  //8xyE
+                    V[15] = (V[x] & 0x80) >> 7;
+                    V[x] = V[x] << 1;
+                }
+                break;
 
-
-            case 10 : LDi(&nnn, &I); break;
-            case 13 : DRW(display_array,x,y,n,I,memory,V); update_display(renderer); break;
+            case 9 : if(n==0) SNE9(&PC, V[x], V[y]); break;  //9xy0
+            case 0xA : LDi(&nnn, &I); break;  //Annn
+            case 0xB : JUMPv0(nnn,&PC,V[0]); break;  //Bnnn
+            case 0xC : RND(V,kk,x); break;  //Cxkk
+            case 0xD : DRW(display_array,x,y,n,I,memory,V); update_display(renderer); break;  //Dxyn
+            case 0xE :
+                if((nnn & 0xFF) == 0x9E) {} //Ex9E //TODO
+                else if ((nnn & 0xFF) == 0xA1) {} //ExA1 //TODO
+                break;
+            case 0xF :
+                if((nnn & 0xFF) == 0x07) V[x] = DT;  //Fx07
+                // else if((nnn & 0xFF) == 0x0A)  //Fx0A //TODO : keypress
+                else if ((nnn & 0xFF) == 0x15) DT = V[x];  //Fx15
+                else if ((nnn & 0xFF) == 0x18) ST = V[x];  //Fx18
+                else if ((nnn & 0xFF) == 0x1E) I = I + V[x];  //Fx1E
+                else if ((nnn & 0xFF) == 0x29) { I = SPRITE_ADDRESS[V[x]];} //Fx29
+                else if ((nnn & 0xFF) == 0x33) {  } //Fx33  //TODO
+                else if ((nnn & 0xFF) == 0x055) { REG_STORE(I,V,memory); } //Fx55
+                else if ((nnn & 0xFF) == 0x65) { REG_LOAD(I, V, memory); }  //Fx65
+                break;
             default: breakflag++;
         }
+        SDL_Delay(7);
     }
-    SDL_Delay(2000);
+
 }

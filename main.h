@@ -90,3 +90,31 @@ int DRW(u_int8_t (*display_array)[64], unsigned int xi, unsigned int yi, unsigne
     }
     return 0;
 }
+
+int SNE9(u_int16_t *pc, u_int8_t x, u_int8_t y) {
+    if(x!=y) *pc = *pc + 2;
+    return 0;
+}
+
+int JUMPv0(u_int16_t N, u_int16_t *pc,u_int8_t v0) {
+    *pc = *pc + N + v0;
+    return 0;
+}
+
+int REG_STORE(u_int16_t I, u_int8_t *registers, u_int8_t *mem) {
+
+    for(int i=0;i<16;i++) {
+        mem[I] = registers[i];
+        I++;
+    }
+    return 0;
+}
+
+int REG_LOAD(u_int16_t I, u_int8_t *registers, u_int8_t *mem){
+    for(int i=0;i<16;i++) {
+        registers[i] = mem[I];
+        I++;
+    }
+    return 0;
+}
+
