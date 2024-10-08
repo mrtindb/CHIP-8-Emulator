@@ -118,3 +118,10 @@ int REG_LOAD(u_int16_t I, u_int8_t *registers, u_int8_t *mem){
     return 0;
 }
 
+int BCD(u_int8_t *memory, u_int8_t v, u_int16_t i){
+    memory[i] = v/100;
+    memory[i+1] = (v/10)%10;
+    memory[i+2] = v%10;
+    return 0;
+}
+

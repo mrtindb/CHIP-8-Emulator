@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <SDL2/SDL.h>
 #include <time.h>
-#include <stdlib.h>
 #include "main.h"
 
 /** Start address for each of the 15 sprites, associared with the hexadecimal digits */
@@ -23,9 +22,7 @@ const unsigned int TOTAL_RAM_MEMORY = 4096;
 /** Screen Parameters */
 const int SDL_SCREEN_WIDTH = 64;
 const int SDL_SCREEN_HEIGHT = 32;
-const int SDL_SCREEN_SCALE=55;
-
-const unsigned int INSTRUCTIONS_PER_SECOND = 700;
+const int SDL_SCREEN_SCALE=15;
 
 /** Useful memory for storing program code */
 const unsigned int AVAILABLE_RAM_MEMORY = TOTAL_RAM_MEMORY - 512;
@@ -56,6 +53,15 @@ u_int8_t memory[4096] = {0};
 
 /** Display pixel array */
 uint8_t display_array[32][64] = {0};
+
+/** Upon receiving instruction Fx0A, the program execution should be paused. What we do instead is skip all instruction phases and
+ * continue looping. This is needed in order to preserve the one-threaded nature of the timers (delay and sound).
+ * This is the boolean flag that indicates if we are allowed to execute further instructions.
+ */
+int  allow_instruction_execution = 1;
+
+/// Target register, where instruction Fx0A will store the pressed key
+int keypress_register = 0;
 
 void update_display(SDL_Renderer *renderer) {
     for(int y=0;y<SDL_SCREEN_HEIGHT;y++) {
@@ -96,6 +102,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    //This is a way of finding file length, in order to read all the data
     fseek(bin, 0, SEEK_END);
     unsigned long file_size = ftell(bin);
     rewind(bin);
@@ -142,6 +149,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    ///SDL Display
     SDL_Window *display = SDL_CreateWindow("kuche", 10,10, SDL_SCREEN_WIDTH * SDL_SCREEN_SCALE,SDL_SCREEN_HEIGHT * SDL_SCREEN_SCALE,0);
 
     if (display == NULL) {
@@ -150,7 +158,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    //SDL Renderer
+    ///SDL Renderer
     SDL_Renderer* renderer = SDL_CreateRenderer(display, -1, SDL_RENDERER_ACCELERATED);
     if (renderer == NULL) {
         printf("Renderer could not be created! SDL_Error: %s\n", SDL_GetError());
@@ -160,11 +168,17 @@ int main(int argc, char *argv[]) {
     }
 
     u_int16_t current_instruction;
+
+    //Parameters, that may be part of the instruction. They are extracted in the decode stage
     u_int8_t opcode;
     u_int16_t nnn;
     u_int8_t x,y,kk;
     u_int8_t n;
+
+    /// A flag that indicates whether or not a basic instruction without parameters was executed (opcode 0x00)
     int flag;
+
+    /// Upon reaching 100 nops, the program is terminated with exit code 0.
     int breakflag = 0;
 
 
@@ -175,12 +189,27 @@ int main(int argc, char *argv[]) {
 
 
     while(1) {
-       /* tmp_time = time(NULL);
-        if(tmp_time - current_time >= 1) {
-            printf("TIME!\n");
-            current_time = tmp_time;
+        //Optional delay to reduce CPU stress
+        SDL_Delay(5);
+        //Update internal program counter
+        tmp_time = time(NULL);
+        if(DT!=0) {
+            if(tmp_time - current_time_delay >= 1) {
+                current_time_delay = tmp_time;
+                DT--;
+            }
         }
-*/
+
+        if(ST!=0) {
+            if(tmp_time - current_time_sound >= 1) {
+                current_time_sound = tmp_time;
+                ST--;
+            }
+        }
+
+
+
+        if(!allow_instruction_execution) continue;
         if(breakflag==100) break;
         flag = 0;
         current_instruction = fetch(memory, &PC);
@@ -190,14 +219,15 @@ int main(int argc, char *argv[]) {
             case 0x00E0 : CLS(renderer); flag = 1; break;
             case 0x00EE : RET(&PC, stack, &SP); flag = 1; break;
         }
-
         if(flag) continue;
+
 
         nnn = current_instruction & 0xFFF;
         x = (current_instruction & 0xF00)>>8;
         y = (current_instruction & 0xF0)>>4;
         kk = current_instruction & 0xFF;
         n = nnn & 0xF;
+
 
         switch(opcode){
             case 1 : JUMP(nnn, &PC); break; // 1nnn
@@ -271,23 +301,36 @@ int main(int argc, char *argv[]) {
             case 0xC : RND(V,kk,x); break;  //Cxkk
             case 0xD : DRW(display_array,x,y,n,I,memory,V); update_display(renderer); break;  //Dxyn
             case 0xE :
-                if((nnn & 0xFF) == 0x9E) {} //Ex9E //TODO
-                else if ((nnn & 0xFF) == 0xA1) {} //ExA1 //TODO
+                if((nnn & 0xFF) == 0x9E) {} //Ex9E //TODO Skip next instruction if key with the value of Vx is pressed.
+                else if ((nnn & 0xFF) == 0xA1) {} //ExA1 //TODO Skip next instruction if key with the value of Vx is not pressed.
                 break;
             case 0xF :
                 if((nnn & 0xFF) == 0x07) V[x] = DT;  //Fx07
-                // else if((nnn & 0xFF) == 0x0A)  //Fx0A //TODO : keypress
-                else if ((nnn & 0xFF) == 0x15) DT = V[x];  //Fx15
-                else if ((nnn & 0xFF) == 0x18) ST = V[x];  //Fx18
+                else if((nnn & 0xFF) == 0x0A) {
+                     keypress_register = x;
+                     allow_instruction_execution = 0;
+                 } //Fx0A //TODO : keypress  Wait for a key press, store the value of the key, All execution stops until a key is pressed, then the value of that key is stored in Vx.
+                else if ((nnn & 0xFF) == 0x15) {  //Fx15
+                    DT = V[x];
+                    if(DT!=0) {
+                        current_time_delay = time(NULL);
+                    }
+                }
+                else if ((nnn & 0xFF) == 0x18) {  //Fx18
+                    ST = V[x];
+                    if(ST!=0) {
+                        current_time_sound = time(NULL);
+                    }
+                }
                 else if ((nnn & 0xFF) == 0x1E) I = I + V[x];  //Fx1E
                 else if ((nnn & 0xFF) == 0x29) { I = SPRITE_ADDRESS[V[x]];} //Fx29
-                else if ((nnn & 0xFF) == 0x33) {  } //Fx33  //TODO
+                else if ((nnn & 0xFF) == 0x33) { BCD(memory, V[x], I); } //Fx33
                 else if ((nnn & 0xFF) == 0x055) { REG_STORE(I,V,memory); } //Fx55
                 else if ((nnn & 0xFF) == 0x65) { REG_LOAD(I, V, memory); }  //Fx65
                 break;
             default: breakflag++;
         }
-        SDL_Delay(7);
+
     }
 
 }
