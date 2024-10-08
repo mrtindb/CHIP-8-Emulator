@@ -3,6 +3,7 @@
 #include <SDL2/SDL.h>
 #include <time.h>
 #include "main.h"
+#include "multithreading_logic.cpp"
 
 /** Start address for each of the 15 sprites, associared with the hexadecimal digits */
 const u_int16_t SPRITE_ADDRESS[16] = {0x50, 0x55, 0x5A, 0x5F, 0x64, 0x69, 0x6E, 0x73, 0x78, 0x7D, 0x82, 0x87, 0x8C, 0x91, 0x96, 0x9B};
@@ -63,6 +64,8 @@ int  allow_instruction_execution = 1;
 /// Target register, where instruction Fx0A will store the pressed key
 int keypress_register = 0;
 
+SDL_AudioSpec audio;
+
 void update_display(SDL_Renderer *renderer) {
     for(int y=0;y<SDL_SCREEN_HEIGHT;y++) {
         for(int x=0;x<SDL_SCREEN_WIDTH;x++) {
@@ -85,6 +88,10 @@ int RND(u_int8_t *v, u_int8_t k, u_int8_t x) {
 }
 
 int main(int argc, char *argv[]) {
+    audio.freq = 44100;
+    audio.format = AUDIO_U8;
+    audio.channels = 1;
+
     srand(time(NULL));
     FILE *bin;
 
@@ -143,9 +150,15 @@ int main(int argc, char *argv[]) {
         memory[i] = initial_buffer[i-0x50];
     }
 
-    //Initializing the display window
+    //Initializing SDL Library (video)
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+        printf("SDL could not initialize video. Error: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    //Initializing the SDL Library (audio)
+    if (SDL_Init(SDL_INIT_AUDIO) < 0) {
+        fprintf(stderr, "SDL could not initialize audio. Error: %s\n", SDL_GetError());
         return 1;
     }
 
