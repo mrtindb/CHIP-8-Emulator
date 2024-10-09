@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <SDL2/SDL.h>
 #include <time.h>
-#include "main.h"
-#include "multithreading_logic.cpp"
+#include "instructions.c"
+#include "headers/sound.h"
 
 /** Start address for each of the 15 sprites, associared with the hexadecimal digits */
 const u_int16_t SPRITE_ADDRESS[16] = {0x50, 0x55, 0x5A, 0x5F, 0x64, 0x69, 0x6E, 0x73, 0x78, 0x7D, 0x82, 0x87, 0x8C, 0x91, 0x96, 0x9B};
@@ -88,9 +88,7 @@ int RND(u_int8_t *v, u_int8_t k, u_int8_t x) {
 }
 
 int main(int argc, char *argv[]) {
-    audio.freq = 44100;
-    audio.format = AUDIO_U8;
-    audio.channels = 1;
+
 
     srand(time(NULL));
     FILE *bin;
@@ -240,7 +238,6 @@ int main(int argc, char *argv[]) {
         y = (current_instruction & 0xF0)>>4;
         kk = current_instruction & 0xFF;
         n = nnn & 0xF;
-
 
         switch(opcode){
             case 1 : JUMP(nnn, &PC); break; // 1nnn

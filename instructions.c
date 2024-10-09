@@ -1,6 +1,5 @@
-#include <stdio.h>
-#include <SDL2/SDL.h>
-
+#include "headers/instructions.h"
+#include<SDL2/SDL.h>
 
 u_int16_t fetch(u_int8_t *mem, u_int16_t *pc) {
     u_int16_t result = 0;
