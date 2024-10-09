@@ -2,7 +2,8 @@
 #include <stdlib.h>
 #include <SDL2/SDL.h>
 #include <time.h>
-#include "instructions.c"
+#include <math.h>
+#include "headers/instructions.h"
 #include "headers/sound.h"
 
 /** Start address for each of the 15 sprites, associared with the hexadecimal digits */
@@ -154,12 +155,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    //Initializing the SDL Library (audio)
-    if (SDL_Init(SDL_INIT_AUDIO) < 0) {
-        fprintf(stderr, "SDL could not initialize audio. Error: %s\n", SDL_GetError());
-        return 1;
-    }
-
     ///SDL Display
     SDL_Window *display = SDL_CreateWindow("kuche", 10,10, SDL_SCREEN_WIDTH * SDL_SCREEN_SCALE,SDL_SCREEN_HEIGHT * SDL_SCREEN_SCALE,0);
 
@@ -196,10 +191,11 @@ int main(int argc, char *argv[]) {
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     ///Main CPU Cycle
-
-
+    sound_init();
+    play_sound();
 
     while(1) {
+
         //Optional delay to reduce CPU stress
         SDL_Delay(5);
         //Update internal program counter
