@@ -1,3 +1,7 @@
+//
+//A file containing boilerplate code for the sound functions. Calling the method play_sound plays a one second sound,
+// corresponding to the CHIP-8 instruction set and sound timer
+//
 #include <SDL2/SDL.h>
 #include<stdio.h>
 #include<math.h>
@@ -31,18 +35,13 @@ void sound_init(void) {
         t = (double)i / SAMPLE_RATE;
         audioBuffer[i] = (u_int8_t)(AMPLITUDE * (0.5 + 0.5 * sin(2.0 * M_PI * FREQUENCY * t)));
     }
+    fflush(stdout);
+}
+
+///Plays a 1sec sound
+void play_sound(void) {
     if (SDL_QueueAudio(deviceId, audioBuffer, 44100) < 0) {
         fprintf(stderr, "Failed to queue audio: %s\n", SDL_GetError());
     }
-
-    // Start audio playback
     SDL_PauseAudioDevice(deviceId, 0);
-    fflush(stdout);
-
-}
-///Plays a 1sec sound
-void play_sound(void) {
-    printf("playing sound");
-    fflush(stdout);
-
 }
