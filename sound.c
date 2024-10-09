@@ -3,6 +3,7 @@
 // corresponding to the CHIP-8 instruction set and sound timer
 //
 #include <SDL2/SDL.h>
+#include <unistd.h>
 #include<stdio.h>
 #include<math.h>
 #include "headers/sound.h"
@@ -11,7 +12,7 @@ const int SAMPLE_RATE = 44100;
 const int AMPLITUDE = 128;
 const double FREQUENCY = 600.0;
 SDL_AudioSpec sound;
-u_int8_t audioBuffer[44100];
+u_int8_t audioBuffer[44100 * 4];
 
 void sound_init(void) {
     sin(2);
@@ -31,17 +32,25 @@ void sound_init(void) {
     sound.callback = NULL;
     sound.userdata = NULL;
     double t;
-    for (int i = 0; i < 44100; ++i) {
+    for (int i = 0; i < 88200*2; ++i) {
         t = (double)i / SAMPLE_RATE;
         audioBuffer[i] = (u_int8_t)(AMPLITUDE * (0.5 + 0.5 * sin(2.0 * M_PI * FREQUENCY * t)));
     }
+    SDL_PauseAudioDevice(deviceId, 0);
     fflush(stdout);
 }
 
 ///Plays a 1sec sound
 void play_sound(void) {
-    if (SDL_QueueAudio(deviceId, audioBuffer, 44100) < 0) {
-        fprintf(stderr, "Failed to queue audio: %s\n", SDL_GetError());
+    for(int i=0;i<=20000;i++) {
+        if (SDL_QueueAudio(deviceId, audioBuffer, 44100 * 4) < 0) {
+            fprintf(stderr, "Failed to queue audio: %s\n", SDL_GetError());
+        }
+
     }
-    SDL_PauseAudioDevice(deviceId, 0);
+
+
+    SDL_PauseAudioDevice(deviceId, 1);
+
+
 }
