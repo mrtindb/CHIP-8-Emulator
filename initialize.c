@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <SDL2/SDL.h>
 #include <time.h>
-#include <math.h>
 #include "headers/instructions.h"
 #include "headers/sound.h"
+#include "headers/keymapping.h"
 
 ///If this variable is set to 0, the emulator will terminate upon completing its last main loop iteration
 int continue_execution = 1;
@@ -198,20 +198,38 @@ int main(int argc, char *argv[]) {
     ///Main CPU Cycle
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     while(continue_execution) {
+        //End of RAM Memory reached
+        if(PC>=4096) break;
 
+        //Event pool loop
         while(SDL_PollEvent(&event) != 0) {
+
+            //Keypress
             if (event.type == SDL_KEYDOWN) {
+
+                // Exit key
                 if(event.key.keysym.sym == SDLK_ESCAPE) {
                     continue_execution = 0;
                 }
+
+                //Program is waiting for a keypress due to Fx0A
+                if(!allow_instruction_execution) {
+                    V[keypress_register] = qwerty_to_hex(event.key.keysym.sym);
+                    allow_instruction_execution = 1;
+                }
+
             }
+
         }
 
 
         //Optional delay to reduce CPU stress
         SDL_Delay(5);
+
         //Update internal program counter
         tmp_time = time(NULL);
+
+        //Check for Delay Timer
         if(DT!=0) {
             if(tmp_time - current_time_delay >= 1) {
                 current_time_delay = tmp_time;
@@ -219,6 +237,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
+        //Check for Sound Timer
         if(ST!=0) {
             if(tmp_time - current_time_sound >= 1) {
                 current_time_sound = tmp_time;
@@ -228,6 +247,7 @@ int main(int argc, char *argv[]) {
 
 
 
+        //flag for the instruction Fx0A
         if(!allow_instruction_execution) continue;
         if(breakflag==100) break;
         flag = 0;
@@ -319,15 +339,21 @@ int main(int argc, char *argv[]) {
             case 0xC : RND(V,kk,x); break;  //Cxkk
             case 0xD : DRW(display_array,x,y,n,I,memory,V); update_display(renderer); break;  //Dxyn
             case 0xE :
-                if((nnn & 0xFF) == 0x9E) {} //Ex9E //TODO Skip next instruction if key with the value of Vx is pressed.
-                else if ((nnn & 0xFF) == 0xA1) {} //ExA1 //TODO Skip next instruction if key with the value of Vx is not pressed.
+                if((nnn & 0xFF) == 0x9E) {
+                    const u_int8_t *keyState = SDL_GetKeyboardState(NULL);
+                    if(keyState[hex_to_qwerty(V[x])]) PC+=2;
+                } //Ex9E
+                else if ((nnn & 0xFF) == 0xA1) {
+                    const u_int8_t *keyState = SDL_GetKeyboardState(NULL);
+                    if(!keyState[hex_to_qwerty(V[x])]) PC+=2;
+                } //ExA1
                 break;
             case 0xF :
                 if((nnn & 0xFF) == 0x07) V[x] = DT;  //Fx07
-                else if((nnn & 0xFF) == 0x0A) {
+                else if((nnn & 0xFF) == 0x0A) {  //Fx0A
                      keypress_register = x;
                      allow_instruction_execution = 0;
-                 } //Fx0A //TODO : keypress  Wait for a key press, store the value of the key, All execution stops until a key is pressed, then the value of that key is stored in Vx.
+                 }
                 else if ((nnn & 0xFF) == 0x15) {  //Fx15
                     DT = V[x];
                     if(DT!=0) {
@@ -350,5 +376,6 @@ int main(int argc, char *argv[]) {
         }
 
     }
-
+    SDL_DestroyWindow(display);
+    SDL_Quit();
 }
