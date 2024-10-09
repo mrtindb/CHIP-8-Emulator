@@ -12,13 +12,16 @@ u_int16_t fetch(u_int8_t *mem, u_int16_t *pc) {
 }
 
 ///CLears the display
-int CLS(SDL_Renderer *renderer){
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
+int CLS(u_int8_t (*display_array)[64]){
+    for(int i=0;i<32;i++) {
+        for(int j=0;j<64;j++){
+            display_array[i][j] = 0;
+        }
+    }
     return 0;
 }
 
-int RET(u_int16_t *pc,u_int8_t *stk, u_int8_t *sp) {
+int RET(u_int16_t *pc,u_int16_t *stk, u_int8_t *sp) {
     if(*sp==0) return 1;
     *sp = *sp - 1;
     *pc = stk[*sp];
@@ -31,8 +34,8 @@ int JUMP(u_int16_t N, u_int16_t *pc) {
     return 0;
 }
 
-int CALL(u_int16_t N, u_int16_t *pc, u_int8_t *sp, u_int8_t *stk) {
-    stk[*sp] = *pc;
+int CALL(u_int16_t N, u_int16_t *pc, u_int8_t *sp, u_int16_t *stk) {
+    stk[*sp] = *pc ;
     if(*sp==16) return -1;
     *sp = *sp + 1;
     *pc = N;
@@ -100,17 +103,17 @@ int JUMPv0(u_int16_t N, u_int16_t *pc,u_int8_t v0) {
     return 0;
 }
 
-int REG_STORE(u_int16_t I, u_int8_t *registers, u_int8_t *mem) {
+int REG_STORE(u_int16_t I, u_int8_t *registers, u_int8_t *mem, u_int8_t x) {
 
-    for(int i=0;i<16;i++) {
+    for(int i=0;i<=x;i++) {
         mem[I] = registers[i];
         I++;
     }
     return 0;
 }
 
-int REG_LOAD(u_int16_t I, u_int8_t *registers, u_int8_t *mem){
-    for(int i=0;i<16;i++) {
+int REG_LOAD(u_int16_t I, u_int8_t *registers, u_int8_t *mem, u_int8_t x){
+    for(int i=0;i<=x;i++) {
         registers[i] = mem[I];
         I++;
     }

@@ -51,7 +51,7 @@ u_int8_t DT;
 u_int8_t ST;
 
 /** Stack array */
-u_int8_t stack[16] = {0};
+u_int16_t stack[16] = {0};
 
 /** RAM Memory array */
 u_int8_t memory[4096] = {0};
@@ -83,7 +83,7 @@ void update_display(SDL_Renderer *renderer) {
         }
     }
     SDL_RenderPresent(renderer);
-    SDL_Delay(100);
+    //SDL_Delay(100);
 }
 
 int RND(u_int8_t *v, u_int8_t k, u_int8_t x) {
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
     }
 
     ///SDL Display
-    SDL_Window *display = SDL_CreateWindow("kuche", 10,10, SDL_SCREEN_WIDTH * SDL_SCREEN_SCALE,SDL_SCREEN_HEIGHT * SDL_SCREEN_SCALE,0);
+    SDL_Window *display = SDL_CreateWindow("kuche", 10,10, SDL_SCREEN_WIDTH * SDL_SCREEN_SCALE,SDL_SCREEN_HEIGHT * SDL_SCREEN_SCALE,SDL_WINDOW_SHOWN);
 
     if (display == NULL) {
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
@@ -224,7 +224,7 @@ int main(int argc, char *argv[]) {
 
 
         //Optional delay to reduce CPU stress
-        SDL_Delay(5);
+
 
         //Update internal program counter
         tmp_time = time(NULL);
@@ -249,13 +249,13 @@ int main(int argc, char *argv[]) {
 
         //flag for the instruction Fx0A
         if(!allow_instruction_execution) continue;
-        if(breakflag==100) break;
+        //if(breakflag==100) break;
         flag = 0;
         current_instruction = fetch(memory, &PC);
         opcode = current_instruction >> 12;
 
         switch(current_instruction) {
-            case 0x00E0 : CLS(renderer); flag = 1; break;
+            case 0x00E0 : CLS(display_array); update_display(renderer); flag = 1; break;
             case 0x00EE : RET(&PC, stack, &SP); flag = 1; break;
         }
         if(flag) continue;
@@ -294,42 +294,46 @@ int main(int argc, char *argv[]) {
 
                 else if(n == 4){  //8xy4
                     unsigned int tmp = V[x] + V[y];
-                    if(tmp>255) V[15] = 1;
+
                     V[x] = tmp & 0xFF;
+                    if(tmp>255) V[15] = 1;
+                    else V[15] = 0;
                 }
 
                 else if(n == 5){  //8xy5
                     int l = V[x] - V[y];
+                    V[x] = V[x] - V[y];
                     if(l<0) {
-                        V[x] = V[y] - V[x];
                         V[15] = 0;
                     }
                     else {
-                        V[x] = V[x] - V[y];
                         V[15] = 1;
                     }
+
                 }
 
                 else if(n == 6){  // 8xy6
-                    V[15] = V[x] & 1;
+                    unsigned int tmp = V[x] & 1;
                     V[x] = V[x] >> 1;
+                    V[15] = tmp;
                 }
 
                 else if(n == 7){  //8xy7
                     int l = V[y] - V[x];
+                    V[x] = V[y] - V[x];
                     if(l<0) {
                         V[15] = 0;
-                        V[x] = V[x] - V[y];
                     }
                     else {
                         V[15] = 1;
-                        V[x] = V[y] - V[x];
                     }
+
                 }
 
                 else if(n == 14){  //8xyE
-                    V[15] = (V[x] & 0x80) >> 7;
+                    unsigned int tmp = (V[x] & 0x80) >> 7;
                     V[x] = V[x] << 1;
+                    V[15] = tmp;
                 }
                 break;
 
@@ -339,14 +343,14 @@ int main(int argc, char *argv[]) {
             case 0xC : RND(V,kk,x); break;  //Cxkk
             case 0xD : DRW(display_array,x,y,n,I,memory,V); update_display(renderer); break;  //Dxyn
             case 0xE :
-                if((nnn & 0xFF) == 0x9E) {
+                if((nnn & 0xFF) == 0x9E) { //Ex9E
                     const u_int8_t *keyState = SDL_GetKeyboardState(NULL);
                     if(keyState[hex_to_qwerty(V[x])]) PC+=2;
-                } //Ex9E
-                else if ((nnn & 0xFF) == 0xA1) {
+                }
+                else if ((nnn & 0xFF) == 0xA1) { //ExA1
                     const u_int8_t *keyState = SDL_GetKeyboardState(NULL);
                     if(!keyState[hex_to_qwerty(V[x])]) PC+=2;
-                } //ExA1
+                }
                 break;
             case 0xF :
                 if((nnn & 0xFF) == 0x07) V[x] = DT;  //Fx07
@@ -369,8 +373,8 @@ int main(int argc, char *argv[]) {
                 else if ((nnn & 0xFF) == 0x1E) I = I + V[x];  //Fx1E
                 else if ((nnn & 0xFF) == 0x29) { I = SPRITE_ADDRESS[V[x]];} //Fx29
                 else if ((nnn & 0xFF) == 0x33) { BCD(memory, V[x], I); } //Fx33
-                else if ((nnn & 0xFF) == 0x055) { REG_STORE(I,V,memory); } //Fx55
-                else if ((nnn & 0xFF) == 0x65) { REG_LOAD(I, V, memory); }  //Fx65
+                else if ((nnn & 0xFF) == 0x055) { REG_STORE(I,V,memory, x); } //Fx55
+                else if ((nnn & 0xFF) == 0x65) { REG_LOAD(I, V, memory, x); }  //Fx65
                 break;
             default: breakflag++;
         }

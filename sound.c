@@ -1,5 +1,5 @@
 //
-//A file containing boilerplate code for the sound functions. Calling the method play_sound plays a one second sound,
+//A file containing boilerplate code for the sound functions. Calling the method play_sound plays a one-second sound,
 // corresponding to the CHIP-8 instruction set and sound timer
 //
 #include <SDL2/SDL.h>
