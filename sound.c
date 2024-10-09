@@ -10,6 +10,7 @@
 SDL_AudioDeviceID deviceId;
 const int SAMPLE_RATE = 44100;
 const int AMPLITUDE = 128;
+const int BUFFER_SIZE = 4096;
 const double FREQUENCY = 600.0;
 SDL_AudioSpec sound;
 u_int8_t audioBuffer[44100 * 4];

@@ -6,6 +6,9 @@
 #include "headers/instructions.h"
 #include "headers/sound.h"
 
+///If this variable is set to 0, the emulator will terminate upon completing its last main loop iteration
+int continue_execution = 1;
+
 /** Start address for each of the 15 sprites, associared with the hexadecimal digits */
 const u_int16_t SPRITE_ADDRESS[16] = {0x50, 0x55, 0x5A, 0x5F, 0x64, 0x69, 0x6E, 0x73, 0x78, 0x7D, 0x82, 0x87, 0x8C, 0x91, 0x96, 0x9B};
 
@@ -65,7 +68,6 @@ int  allow_instruction_execution = 1;
 /// Target register, where instruction Fx0A will store the pressed key
 int keypress_register = 0;
 
-SDL_AudioSpec audio;
 
 void update_display(SDL_Renderer *renderer) {
     for(int y=0;y<SDL_SCREEN_HEIGHT;y++) {
@@ -173,6 +175,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    //Event struct object
+    SDL_Event event;
+
     u_int16_t current_instruction;
 
     //Parameters, that may be part of the instruction. They are extracted in the decode stage
@@ -186,15 +191,22 @@ int main(int argc, char *argv[]) {
 
     /// Upon reaching 100 nops, the program is terminated with exit code 0.
     int breakflag = 0;
-
-
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////////
-    ///Main CPU Cycle
     sound_init();
     play_sound();
 
-    while(1) {
+    ///////////////////////////////////////////////////////////////////////////////////////////////////
+    ///Main CPU Cycle
+    ///////////////////////////////////////////////////////////////////////////////////////////////////
+    while(continue_execution) {
+
+        while(SDL_PollEvent(&event) != 0) {
+            if (event.type == SDL_KEYDOWN) {
+                if(event.key.keysym.sym == SDLK_ESCAPE) {
+                    continue_execution = 0;
+                }
+            }
+        }
+
 
         //Optional delay to reduce CPU stress
         SDL_Delay(5);
