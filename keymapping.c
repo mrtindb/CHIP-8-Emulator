@@ -21,7 +21,7 @@ SDL_Scancode translate[16] = {
 
 
 SDL_Scancode hex_to_qwerty(u_int8_t key){
-    if(key>15) return '\0';
+    if(key>15) return -1;
     return translate[key];
 }
 

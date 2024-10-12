@@ -13,13 +13,13 @@ int continue_execution = 1;
 const u_int16_t SPRITE_ADDRESS[16] = {0x50, 0x55, 0x5A, 0x5F, 0x64, 0x69, 0x6E, 0x73, 0x78, 0x7D, 0x82, 0x87, 0x8C, 0x91, 0x96, 0x9B};
 
 ///Stores the last time when the delay timer was altered
-time_t current_time_delay;
+u_int32_t current_time_delay;
 
 ///Stores the last time when the sound timer was altered
-time_t current_time_sound;
+u_int32_t current_time_sound;
 
 ///Stores currently measured time
-time_t tmp_time;
+u_int32_t tmp_time;
 
 /** RAM Memory in bytes */
 const unsigned int TOTAL_RAM_MEMORY = 4096;
@@ -27,7 +27,7 @@ const unsigned int TOTAL_RAM_MEMORY = 4096;
 /** Screen Parameters */
 const int SDL_SCREEN_WIDTH = 64;
 const int SDL_SCREEN_HEIGHT = 32;
-const int SDL_SCREEN_SCALE=15;
+const int SDL_SCREEN_SCALE=25;
 
 /** Useful memory for storing program code */
 const unsigned int AVAILABLE_RAM_MEMORY = TOTAL_RAM_MEMORY - 512;
@@ -67,6 +67,7 @@ int  allow_instruction_execution = 1;
 
 /// Target register, where instruction Fx0A will store the pressed key
 int keypress_register = 0;
+
 
 
 void update_display(SDL_Renderer *renderer) {
@@ -194,26 +195,29 @@ int main(int argc, char *argv[]) {
     sound_init();
     play_sound();
 
+    u_int32_t last_frame = 0;
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     ///Main CPU Cycle
     ///////////////////////////////////////////////////////////////////////////////////////////////////
+
     while(continue_execution) {
+
+
         //End of RAM Memory reached
         if(PC>=4096) break;
+        tmp_time = SDL_GetTicks();
 
+    while(SDL_GetTicks() - last_frame <= 1) {
         //Event pool loop
-        while(SDL_PollEvent(&event) != 0) {
-
+        while (SDL_PollEvent(&event) != 0) {
             //Keypress
             if (event.type == SDL_KEYDOWN) {
-
                 // Exit key
-                if(event.key.keysym.sym == SDLK_ESCAPE) {
+                if (event.key.keysym.sym == SDLK_ESCAPE) {
                     continue_execution = 0;
                 }
-
                 //Program is waiting for a keypress due to Fx0A
-                if(!allow_instruction_execution) {
+                if (!allow_instruction_execution) {
                     V[keypress_register] = qwerty_to_hex(event.key.keysym.sym);
                     allow_instruction_execution = 1;
                 }
@@ -221,26 +225,26 @@ int main(int argc, char *argv[]) {
             }
 
         }
-
-
+    }
+    last_frame = SDL_GetTicks();
         //Optional delay to reduce CPU stress
 
 
         //Update internal program counter
-        tmp_time = time(NULL);
+
 
         //Check for Delay Timer
         if(DT!=0) {
-            if(tmp_time - current_time_delay >= 1) {
-                current_time_delay = tmp_time;
+            if((double)tmp_time - (double)current_time_delay >= 16.66666) {
+                current_time_delay = SDL_GetTicks();
                 DT--;
             }
         }
 
         //Check for Sound Timer
         if(ST!=0) {
-            if(tmp_time - current_time_sound >= 1) {
-                current_time_sound = tmp_time;
+            if(tmp_time - current_time_sound >= 1000) {
+                current_time_sound = SDL_GetTicks();
                 ST--;
             }
         }
@@ -361,13 +365,13 @@ int main(int argc, char *argv[]) {
                 else if ((nnn & 0xFF) == 0x15) {  //Fx15
                     DT = V[x];
                     if(DT!=0) {
-                        current_time_delay = time(NULL);
+                        current_time_delay = SDL_GetTicks();
                     }
                 }
                 else if ((nnn & 0xFF) == 0x18) {  //Fx18
                     ST = V[x];
                     if(ST!=0) {
-                        current_time_sound = time(NULL);
+                        current_time_sound = SDL_GetTicks();
                     }
                 }
                 else if ((nnn & 0xFF) == 0x1E) I = I + V[x];  //Fx1E

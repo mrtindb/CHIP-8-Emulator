@@ -73,6 +73,7 @@ int LDi(u_int16_t *nnn, u_int16_t *i) {
 }
 
 int DRW(u_int8_t (*display_array)[64], unsigned int xi, unsigned int yi, unsigned int n, u_int16_t i_addr, u_int8_t *memory, u_int8_t *V) {
+    int erase_flag = 0;
     u_int8_t b[8];
     unsigned int x = V[xi];
     unsigned int y = V[yi];
@@ -86,10 +87,14 @@ int DRW(u_int8_t (*display_array)[64], unsigned int xi, unsigned int yi, unsigne
         b[1] = (memory[i_addr] & 0x40)>>6;
         b[0] = (memory[i_addr] & 0x80)>>7;
         for(unsigned int bit = x; bit<8+x; bit++){
-            if(display_array[ct%32][bit%64] & b[bit-x]) V[16] = 1;
+            if(ct>=32 || bit >= 64) continue;
+            if(display_array[ct%32][bit%64] & b[bit-x]){
+                erase_flag = 1;
+            }
             display_array[ct%32][bit%64] = display_array[ct%32][bit%64] ^ b[bit-x];
         }
     }
+    V[15] = erase_flag;
     return 0;
 }
 
